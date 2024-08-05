@@ -1,0 +1,21 @@
+---
+title: "séries ipca"
+output: html_document
+date: "2024-08-05"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+
+library(tidyverse)
+
+series_ipca_numero_indice <- readRDS("~/github/series_ipca/series_ipca_numero_indice.rds")
+```
+
+
+```{r}
+series_ipca_numero_indice %>%
+  ggplot(aes(x=date, y=numero_indice)) +
+  geom_line(aes(group = name, color = name))
+```
+
