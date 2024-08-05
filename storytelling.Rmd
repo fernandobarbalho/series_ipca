@@ -8,14 +8,104 @@ date: "2024-08-05"
 knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 
 library(tidyverse)
+library(ggrepel)
 
 series_ipca_numero_indice <- readRDS("~/github/series_ipca/series_ipca_numero_indice.rds")
+
+series_ipca_numero_indice$percentual_acumulado = (series_ipca_numero_indice$numero_indice-100)/100
+
+series_ipca_numero_indice<-
+series_ipca_numero_indice %>%
+  mutate(date  = as.Date(date)) %>%
+  mutate(name = str_remove_all(name, "IPCA - "),
+         name = str_remove_all(name, " - taxa de variação" ),
+         name = str_to_title(name))%>%
+  mutate(name = case_when(
+    name == "Educação, Leitura E Papelaria" ~"Educação",
+    name == "Saúde E Cuidados Pessoais" ~"Saúde",
+    name == "Artigos De Residência" ~"Residência",
+    .default = name
+  ))
+
+#paleta_cores<- c("#3b4cc0", "#6a8bef", "#00f20d", "#e2dad5", "#e2dad5", "#f5c4ac", "#f7bca1", "#e16751", "#bd1f2d", "#b40426")
+#c("#0000ff", "#004cb3", "#00f20d", "#0bf400", "#0bf400", "#41be00", "#4fb000", "#b94600", "#f30c00", "#ff0000")
+#c("#ff0000", "#d92626", "#867979", "#7a7a85", "#7a7a85", "#5f5fa0", "#5858a7", "#2323dc", "#0606f9", "#0000ff")
+paleta_cores<- c("#0000ff", "#2626d9", "#797986", "#857a7a", "#857a7a", "#a05f5f", "#a75858", "#dc2323", "#df0610", "#ff0000")
+
+
 ```
 
 
-```{r}
-series_ipca_numero_indice %>%
-  ggplot(aes(x=date, y=numero_indice)) +
-  geom_line(aes(group = name, color = name))
+```{r fig.width=12, fig.height=7.2}
+
+
+
+ultimo_mes<- max(series_ipca_numero_indice$date)
+
+
+
+dados_ultimo_mes<-
+  series_ipca_numero_indice %>%
+  filter(date == ultimo_mes)
+
+
+acumulado_ipca_geral<- 
+  (dados_ultimo_mes %>%
+  filter(code == "PRECOS12_IPCAG12"))$percentual_acumulado
+
+
+dados_ultimo_mes <-
+  dados_ultimo_mes %>%
+  mutate(comparacao_ipca_geral = case_when(
+    round(percentual_acumulado,1) < round(acumulado_ipca_geral,1) ~ "-1",
+    round(percentual_acumulado,1) == round(acumulado_ipca_geral,1) ~ "0",
+    round(percentual_acumulado,1) > round(acumulado_ipca_geral,1) ~"1"
+  )) %>%
+  select(date, name, percentual_acumulado, comparacao_ipca_geral) %>%
+  mutate(name = reorder(name, percentual_acumulado))
+
+comparacao_final<-
+  dados_ultimo_mes %>%
+  select(name, comparacao_ipca_geral)
+
+series_ipca_numero_indice  %>%
+  inner_join(comparacao_final) %>%
+  select(date, percentual_acumulado, name, comparacao_ipca_geral)  %>%
+  #mutate(name= reorder(name, percentual_acumulado.y)) %>%
+  bind_rows(tibble(date = as.Date("2035-12-30"), percentual_acumulado=NA, name=NA, comparacao_ipca_geral=NA)) %>%
+  mutate(linha_especial = ifelse(name %in% c("Geral", "Habitação"), "especial", "normal")) %>%
+  ggplot(aes(x=date, y=percentual_acumulado)) +
+  geom_line(aes(group = name, color = name, size= linha_especial), 
+            show.legend = FALSE) +
+  geom_point(data = dados_ultimo_mes, aes(color = name ), show.legend = FALSE, size=1) +
+  geom_text_repel(
+    data = dados_ultimo_mes,
+    aes(label = str_wrap(name,40), color = name),
+    show.legend = FALSE,
+    size = 3,
+    nudge_x = 5,   # Aumente o valor conforme necessário para empurrar o texto para a direita
+    hjust = 0,      # Alinha o texto à esquerda (à direita do ponto de referência)
+    direction = "y" # Evita sobreposição vertical
+  ) +
+  scale_color_manual(values = paleta_cores)+
+  scale_y_continuous(labels = scales::percent) +
+  scale_size_manual(values = c("normal" = 0.5, "especial" = 1.2)) + # Define a largura das linhas
+  scale_x_date(
+    breaks = seq(as.Date('1995-01-01'), as.Date('2024-12-31'), by = "year"),
+    labels = function(x) ifelse(year(x) > 2024, "", year(x))
+  ) +
+  theme_minimal() + # Opção de tema para melhorar a visualização 
+  theme(
+    panel.grid = element_blank(),
+    plot.margin = margin(5, 150, 5, 5) , # Ajusta as margens para dar mais espaço à direita,
+    axis.text.x = element_text(angle = 0, size =6)
+  ) +
+  labs(
+    x= "",
+    y= "",
+    title = "29 anos de mudanças de preço no Brasil",
+    subtitle = "Desagregação do IPCA",
+    caption =  "Fonte: ipeadata. Elaboração própria"
+  )
 ```
 
