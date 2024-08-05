@@ -19,13 +19,13 @@ series_ipca_numero_indice %>%
   mutate(date  = as.Date(date)) %>%
   mutate(name = str_remove_all(name, "IPCA - "),
          name = str_remove_all(name, " - taxa de variação" ),
-         name = str_to_title(name))%>%
-  mutate(name = case_when(
-    name == "Educação, Leitura E Papelaria" ~"Educação",
-    name == "Saúde E Cuidados Pessoais" ~"Saúde",
-    name == "Artigos De Residência" ~"Residência",
-    .default = name
-  ))
+         name = str_to_title(name))#%>%
+#  mutate(name = case_when(
+#    name == "Educação, Leitura E Papelaria" ~"Educação",
+#    name == "Saúde E Cuidados Pessoais" ~"Saúde",
+#    name == "Artigos De Residência" ~"Residência",
+#    .default = name
+#  ))
 
 #paleta_cores<- c("#3b4cc0", "#6a8bef", "#00f20d", "#e2dad5", "#e2dad5", "#f5c4ac", "#f7bca1", "#e16751", "#bd1f2d", "#b40426")
 #c("#0000ff", "#004cb3", "#00f20d", "#0bf400", "#0bf400", "#41be00", "#4fb000", "#b94600", "#f30c00", "#ff0000")
@@ -48,6 +48,11 @@ dados_ultimo_mes<-
   series_ipca_numero_indice %>%
   filter(date == ultimo_mes)
 
+ordem_ultimo_mes <- 
+  (dados_ultimo_mes %>%
+  arrange(percentual_acumulado))$name
+
+
 
 acumulado_ipca_geral<- 
   (dados_ultimo_mes %>%
@@ -62,7 +67,7 @@ dados_ultimo_mes <-
     round(percentual_acumulado,1) > round(acumulado_ipca_geral,1) ~"1"
   )) %>%
   select(date, name, percentual_acumulado, comparacao_ipca_geral) %>%
-  mutate(name = reorder(name, percentual_acumulado))
+  mutate(name = factor(name, levels =  ordem_ultimo_mes  ))
 
 comparacao_final<-
   dados_ultimo_mes %>%
@@ -71,8 +76,9 @@ comparacao_final<-
 series_ipca_numero_indice  %>%
   inner_join(comparacao_final) %>%
   select(date, percentual_acumulado, name, comparacao_ipca_geral)  %>%
+  mutate(name = factor(name, levels =ordem_ultimo_mes )) %>%
   #mutate(name= reorder(name, percentual_acumulado.y)) %>%
-  bind_rows(tibble(date = as.Date("2035-12-30"), percentual_acumulado=NA, name=NA, comparacao_ipca_geral=NA)) %>%
+  bind_rows(tibble(date = as.Date("2028-12-30"), percentual_acumulado=NA, name=NA, comparacao_ipca_geral=NA)) %>%
   mutate(linha_especial = ifelse(name %in% c("Geral", "Habitação"), "especial", "normal")) %>%
   ggplot(aes(x=date, y=percentual_acumulado)) +
   geom_line(aes(group = name, color = name, size= linha_especial), 
@@ -92,19 +98,19 @@ series_ipca_numero_indice  %>%
   scale_size_manual(values = c("normal" = 0.5, "especial" = 1.2)) + # Define a largura das linhas
   scale_x_date(
     breaks = seq(as.Date('1995-01-01'), as.Date('2024-12-31'), by = "year"),
-    labels = function(x) ifelse(year(x) > 2024, "", year(x))
+    labels = function(x) ifelse(lubridate::year(x) > 2024, "", lubridate::year(x))
   ) +
   theme_minimal() + # Opção de tema para melhorar a visualização 
   theme(
     panel.grid = element_blank(),
     plot.margin = margin(5, 150, 5, 5) , # Ajusta as margens para dar mais espaço à direita,
-    axis.text.x = element_text(angle = 0, size =6)
+    axis.text.x = element_text(angle = 0, size =7)
   ) +
   labs(
     x= "",
     y= "",
     title = "29 anos de mudanças de preço no Brasil",
-    subtitle = "Desagregação do IPCA",
+    subtitle = "Desagregação do IPCA. Fevereiro de 1995 a Junho de 2024",
     caption =  "Fonte: ipeadata. Elaboração própria"
   )
 ```
